@@ -1,0 +1,106 @@
+---
+title: "GLMNET_Exercise"
+author: "Brian Law"
+date: "November 24, 2015"
+output: html_document
+---
+
+Package requirements
+
+```{r}
+install.packages(c("mplot", "ISLR", "glmnet", "MASS"))
+```
+
+Dataload
+
+```{r}
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/ionosphere/ionosphere.data"
+dat = read.table(url, sep = ",")
+dim(dat)
+names(dat)[35] = "y"
+```
+
+Exploration
+
+```{r}
+summary(dat)
+boxplot(dat)
+```
+
+Data Processing
+
+```{r}
+x = as.matrix(dat[, -c(2, 35)])
+dim(x)
+y = dat$y
+is.factor(y)
+table(y)
+
+pairsD3::shinypairs(x)
+d3heatmap::d3heatmap(cor(x))
+```
+
+logistic regression sit
+
+```{r}
+library(glmnet)
+lasso.fit <- glmnet(x, y, family="binomial")
+plot(lasso.fit, xvar = "lambda")
+#plot(log_reg_fit, xvar = "lambda", label=TRUE)
+```
+
+glmnet cv fit
+
+```{r}
+
+
+set.seed(1)
+lasso.cv = cv.glmnet(x, y, family = "binomial", type.measure = "class", nfolds=45)
+c(lasso.cv$lambda.min, lasso.cv$lambda.1se)
+J = round(log(c(lasso.cv$lambda.min, lasso.cv$lambda.1se)), 2)
+plot(lasso.cv)
+
+# plot the lines from the min lambda and the lse
+abline(v = J[1])
+abline(v = J[2], col = 'red')
+
+```
+
+Using AIC and BIC
+
+```{r}
+# number of models fitted
+length(lasso.fit$lambda)
+
+# Use AIC / BIC criterion
+lasso_AIC <- deviance(lasso.fit) + 2 * lasso.fit$df
+lasso_BIC <- deviance(lasso.fit) + log(351) * lasso.fit$df
+MIN_AIC <- which.min(lasso_AIC)
+MIN_BIC <- which.min(lasso_BIC)
+MIN_AIC
+MIN_BIC
+```
+
+select models based on the Min AIC and Min BIC
+
+```{r}
+lasso.fit$lambda[MIN_AIC]
+lasso.fit$lambda[MIN_BIC]
+
+# the coefficients of the MIN_AIC and MIN_BIC models
+coef(lasso.fit)[, c(MIN_AIC, MIN_BIC)]
+```
+
+MaxLikelihood v Lasso v ridge v elastic-net
+
+```{r}
+
+data_without_2 <- dat[,-2]
+data_without_2$y <- as.numeric(data_without_2$y) - 1
+table(data_without_2$y)
+Model_max_likelihood <- glm(y ~ . , family = binomial, data = data_without_2)
+
+glm_coefficients <- coef(Model_max_likelihood)[-1]
+```
+
+

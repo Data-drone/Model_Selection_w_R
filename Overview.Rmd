@@ -1,0 +1,326 @@
+---
+title: "Overview Doc"
+author: "Brian Law"
+date: "November 24, 2015"
+output: html_document
+---
+
+This is an overview attempt of the Model Selection with R short course organsied by the Centre for Applied Statistics at UWA.
+
+These are the packages used
+
+```{r, echo=FALSE}
+require("leaps")
+require("bestglm")
+require("lars")
+require("mplot")
+require("MASS")
+require("pairsD3")
+require("d3heatmap")
+require("Hmisc")
+require("car")
+```
+
+
+This course covers model selection with linear models.
+
+Model selection techniques centered around Residual Sum of Squares analysis and AIC / BIC criterion is covered.
+
+### Load Data 
+Firstly we should have a look at the data.
+
+In order to examine and analyse datasets for analysis
+boxplots, scatter diagrams and correlation heatmaps.
+
+```{r}
+#Load Demo data
+data("bodyfat", package="mplot")
+dim(bodyfat)
+names(bodyfat)
+```
+
+### Initial Exploration
+
+Things to note are no weird outliers, the numerical ranges are similar. There are no variables with values in the thousands for example. the heatmap is to look at inter parameter correlations, the scatterplot to identify outliers and the boxplot to look at the data in general
+
+```{r}
+#boxplot the data after removing ID column
+bfat = bodyfat[, -1]
+boxplot(bfat, horizontal = TRUE, las = 1)
+```
+
+
+```{r}
+#Scatterplot analysis
+pairs(bfat)
+# correlation heatmap
+d3heatmap(cor(bfat), minVal = -1, maxVal = 1)
+```
+
+## Overview
+With linear regression models what we are trying to do is to find the regression parameters to best draw lines to fit the data that we have. This is a supervised learning problem.
+
+We do not cover the imputation of missing values here. Interested parties can look at the following R libraries for further information on missing value imputation. mice / mi / Amelia
+
+In this course we are focused on model selection. The more different input variables the more possible models we have.
+for example with 4 input variables, var_1, var_2, var_3, var_4 
+
+We can have these models:
+
+ * Output = parameter_1 * var_1 + parameter_2 * var_2
+ * Output = parameter_1 * var_2 + parameter_2 * var_3
+ * Output = parameter_1 * var_1 + parameter_2 * var_2 + parameter_3 * var_3
+ * Output = parameter_1 * var_1 + parameter_2 * var_2 * var_3
+
+plus many more combinations
+
+How can we choose between which ones to use?
+
+Common Terminology for model selection:
+
+ * Null model - Model consisting of just a fixed number
+ * Full model - Model with every single variable eg for our four factors above it would be
+    + Output = parameter_1 * var_1 + parameter_2 * var_2 + parameter_3 * var_3 + parameter_4 * var_4
+
+## Model Fitting
+#### Simple linear model
+
+We can fit a simple linear model using the lm function.
+Bodyfat ~ . means using the Bodyfat variable as our output fit the Full model with all the parameters. 
+Note we don't multiply any variables together. If we want to do this we need to manually put this in.
+```{R}
+Full_Model = lm(Bodyfat ~ . , data = bfat)
+
+# standard R model diagnostics
+summary(Full_Model)
+```
+
+Standard model diagnosis charts
+
+```{r}
+# this command gives us a 2x2 grid of graphs
+par(mfrow = c(2,2))
+plot(Full_Model, which = c(1,2,3,4), add.smooth = FALSE)
+```
+
+#### Model Comparison Tools
+
+So How we compare different models against each other?
+We can use:
+
+* Adjusted R-Squared
+
+##### Adjusted R-Squared
+
+
+Adjusted R-Squared is basically the R-squared scaled for the number of parameters fitted.
+It reduces the R-Squared depending on the number of inputs. This stems from the concept that:
+The simpler the model the more useful it will probably be. 
+
+```{r}
+# we will use the Full_Model from above to show how to extract this information
+# from the Model object
+summary(Full_Model)$r.squared # normal R.squared
+summary(Full_Model)$adj.r.squared # adjusted R.squared
+```
+
+For this section on we will load in new data:
+```{r}
+data("fev", package="mplot")
+fem.fev = subset(fev, subset = sex == 0)
+y = fem.fev$fev
+x = fem.fev$age
+```
+
+
+Lets look at the difference between R-Squared and Adjusted R-Squared
+
+```{r}
+r2 = ar2 = NULL
+for (d in 1:16) {
+  fit = lm(y ~ poly(x, degree = d))
+  r2[d] = summary(fit)$r.squared
+  ar2[d] = summary(fit)$adj.r.squared
+}
+round(rbind(r2, ar2), 3)
+```
+
+Lets plot them together
+The dotted lines show the best model (model with highest R-Squared / Adjusted R-Squared)
+Notice how R-Squared picked the model with the model inputs
+But the adjusted R-Squared didn't.
+
+```{r}
+par(mfrow = c(1,2))
+
+# R-squared
+plot(1:16, r2, type = "l", xlab = "Degree of the polynomial (d)", 
+     ylab = expression(R^2 ~ value), lwd = 2)
+abline(h = max(r2), lty = 2)
+abline(v = which.max(r2), lty = 2)
+
+# adjusted R-squared
+plot(1:16, ar2, type = "l", xlab = "Degree of the polynomial (d)", 
+     ylab = expression(Adjusted ~ R^2 ~ value), lwd = 2)
+abline(h = max(ar2), lty = 2)
+abline(v = which.max(ar2), lty = 2)
+```
+
+##### Selection Criteria
+
+An alternative way to select models is to use selection criteria like:
+
+* Akaike's Information Criterion (AIC)
+* Bayesian Information Criterion (AIC)
+
+Calculating AIC and BIC
+
+```{r}
+aic = bic = NULL
+for (d in 1:16) {
+  fit = lm(y ~ poly(x, degree = d))
+  aic[d] = -2 * logLik(fit) + 2 * (d + 2)  # AIC(fit)
+  bic[d] = -2 * logLik(fit) + (d + 2) * log(length(y))  # AIC(fit,k = log(length(y)))
+}
+round(rbind(aic, bic))
+```
+
+The lower the AIC and the BIC the better.
+
+Lets put these on a plot
+
+```{r}
+par(mfrow = c(1,2))
+
+plot(1:16, aic, type = "l", xlab = "Degree of the polynomial (d)", ylab = "AIC value")
+abline(h = min(aic), lty = 2)
+
+plot(1:16, bic, type = "l", xlab = "Degree of the polynomial (d)", ylab = "BIC value")
+abline(h = min(bic), lty = 2)
+```
+
+##### Automatic Stepwise fittings of models
+
+So far what we have tried to do is to test every single model and use R^2 / AIC / BIC to help us find the right one.
+We could however use an algorithm that will automatically iterate through models to find the best one.
+
+Let's use a new dataset of US crime figures
+
+```{r}
+
+data("UScrime",package = "MASS")
+
+# data exploration steps
+dim(UScrime) # look at dimensions
+#shinypairs(UScrime) # interactive dashboard for looking for patterns
+d3heatmap(cor(UScrime)) # heat map to look at correlations
+```
+
+Lets create the null and full models as base cases
+
+```{r}
+
+M0 = lm(y ~ 1, data = UScrime)  # Null model
+M1 = lm(y ~ ., data = UScrime)  # Full model
+
+```
+
+The first automated method takes the Full model and slowly drops variables till it finds the best model.
+In the following example BIC is used to assess "best"
+
+```{r}
+
+step.back.bic = step(M1, scope = list(lower = M0, upper = M1),
+                direction = "backward", # we can flip this to forward but remember to replace M1 with M0
+                trace = FALSE, # change to trace = TRUE to print out all steps
+                k = log(47)) # k = log(n) for BIC
+summary(step.back.bic)
+
+```
+
+Here is an aic backward example
+
+```{r}
+
+step.back.aic = step(M1, scope = list(lower = M0, upper = M1),
+                direction = "backward",
+                trace = FALSE, 
+                k = 2) # k = 2 for AIC
+summary(step.back.aic)
+
+```
+
+Here is a BIC forward example
+
+```{r}
+
+step.fwd.bic = step(M0, scope = list(lower = M0, upper = M1), 
+    direction = "forward", 
+    trace = FALSE, 
+    k = log(47))  # k = log(n) for BIC
+summary(step.fwd.bic)
+
+```
+
+Stepwise procedures work best when there a lot more data than input variables.
+Automated Stepwise model selection is still a pretty active field of research.
+As such it is important not to rely purely on it.
+
+##### Exhaustive search
+
+Rather than stop at what our step algorithm has deemed the best model,
+we could search through every possible model. Note that this a computationally expensive procedure.
+
+To do an exhaustive search we shall use the package leaps
+
+```{r}
+
+rgbst.out = regsubsets(y ~ . , data = UScrime,
+                       nbest = 1,
+                       nvmax = NULL,
+                       force.in = NULL, force.out = NULL,
+                       method = "exhaustive")
+#rgbst.out
+
+```
+
+Lets look at the models that were tried
+
+```{r}
+
+summary.out = summary(rgbst.out)
+as.data.frame(summary.out$outmat)
+
+```
+
+One of the criterion that regsubsets uses to judge model quality is Mallows Cp.
+Again like with AIC / BIC we can look for the model with min Mallows Cp.
+
+So why do we need all these criteria?
+
+Each one has different mathematical properties. Depending on the data we are working with
+and the intent of the final model, AIC / BIC / Mallows Cp will be different. 
+
+It is possible that issues with the data quality can affect the criterion By using various metrics
+we hopefully hedge our bets.
+
+To view the Mallows Cp 
+```{r}
+# the Cp table
+summary.out$cp
+
+# Variables included in the model with min Cp
+id = which.min(summary.out$cp)
+summary.out$which[id, ]
+
+```  
+
+Visualise the Cps
+
+```{r}
+
+plot(summary.out$cp ~ rowSums(summary.out$which), ylab = "Cp", 
+    xlab = "Number of parameters")
+abline(v = rowSums(summary.out$which)[id], col = gray(0.5))
+
+```

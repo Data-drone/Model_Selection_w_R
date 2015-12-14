@@ -1,0 +1,68 @@
+---
+title: "GLMNet 1"
+author: "Brian Law"
+date: "November 24, 2015"
+output: html_document
+---
+
+Data source
+
+
+```{r}
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/ionosphere/ionosphere.data"
+dat = read.table(url, sep = ",")
+dim(dat)
+names(dat)[35] = "y"
+
+```
+
+Exploratory Analysis
+
+```{r}
+summary(dat) # output omitted
+boxplot(dat)
+pairs(dat[, c(1:5, 35)])
+table(dat$V2)
+# Alternative methods:
+install.packages(Hmisc)
+Hmisc::describe(dat)
+install.packages("pairsD3")
+pairsD3::shinypairs(dat)
+```
+
+Data processing
+
+```{r}
+# x processing
+x = as.matrix(dat[, -c(2, 35)])
+dim(x)
+
+# y processing
+y = dat$y
+is.factor(y)
+table(y)
+
+round(cor(x), 1)
+
+# optional: visualise the correlation matrix
+# install.packages('d3heatmap') I've submitted a pull request
+# to add minVal and maxVal options
+devtools::install_github('garthtarr/d3heatmap')
+d3heatmap::d3heatmap(cor(x), minVal = -1, maxVal = 1)
+cormat = cor(x) - diag(rep(1, 33))
+table(cormat > 0.8)
+
+which(cormat > 0.8)
+
+cor(x[, 12], x[, 14])
+
+```
+
+Logistic regression net
+
+```{r}
+library(glmnet)
+lasso.fit = glmnet(x, y, family = "binomial")
+plot(lasso.fit, xvar = "lambda", label = TRUE)
+
+```

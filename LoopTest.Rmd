@@ -1,0 +1,47 @@
+---
+title: "Advanced Workbook"
+author: "Brian Law"
+date: "November 23, 2015"
+output: html_document
+---
+
+Triple Compare function
+
+```{r}
+library(leaps)
+```
+
+US Crime Dataset
+
+```{r}
+data("UScrime", package = "MASS")
+M0 = lm(y ~ 1, data = UScrime)  # Null model
+M1 = lm(y ~ ., data = UScrime)  # Full model
+```
+
+Function to look at different methods
+
+```{r}
+methods_to_pick = c("exhaustive", "forward", "backward")
+```
+
+loopy
+
+```{r}
+for (option in methods_to_pick) {
+  rgsbst.out = regsubsets(y ~ . , data = UScrime,
+                        nbest = 50,
+                        nvmax = NULL,
+                        force.in = NULL,
+                        method = option,
+                        really.big = T)
+  
+  summary_output <- summary(rgsbst.out)
+  summary_output$cp
+# identify best model
+  which.min(summary_output$cp)
+  id = which.min(summary_output$cp)
+  summary_output$which[id,]
+}
+```
+

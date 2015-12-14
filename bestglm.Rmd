@@ -1,0 +1,85 @@
+---
+title: "Birthweights Example"
+author: "Brian Law"
+date: "November 23, 2015"
+output: html_document
+---
+
+Load in the dataset
+
+```{r}
+require(MASS)
+bwt <- with(birthwt, {
+    race <- factor(race, labels = c("white", "black", "other"))
+    ptd <- factor(ptl > 0)
+    ftv <- factor(ftv)
+    levels(ftv)[-(1:2)] <- "2+"
+    data.frame(low = factor(low), age, lwt, race, smoke = (smoke > 
+        0), ptd, ht = (ht > 0), ui = (ui > 0), ftv)
+})
+options(contrasts = c("contr.treatment", "contr.poly"))
+bw.glm1 <- glm(low ~ ., family = binomial, data = bwt)
+bw.glm0 <- glm(low ~ 1, family = binomial, data = bwt)
+summary(bw.glm1)
+
+```
+
+Best GLM model
+
+```{r}
+require(bestglm)
+X <- bwt[,-1]
+y <- as.numeric(bwt$low) - 1
+best_glm_frame <- cbind(X,y)
+
+bestglm(best_glm_frame, IC = "AIC", family = binomial)
+
+bestglm(best_glm_frame, IC = "BIC", family = binomial)
+
+```
+
+Rock Wallabies
+
+Load data
+```{r}
+
+data("wallabies", package = "mplot")
+names(wallabies)
+wdat = data.frame(subset(wallabies, select = -c(lat, long)), 
+    EaD = wallabies$edible * wallabies$distance, EaS = wallabies$edible * 
+        wallabies$shelter, DaS = wallabies$distance * wallabies$shelter)
+X = subset(wdat, select = -rw)
+y = wdat$rw
+Xy = as.data.frame(cbind(X, y))
+
+```
+
+Rock Wallabies - bestglm
+
+```{r}
+bestglm(Xy, IC = "CV", family=binomial)
+```
+
+Stagewise procedure to model fit
+
+```{r}
+data("artificialeg",package="mplot")
+y = artificialeg$y-mean(artificialeg$y)
+X = artificialeg[,-10]
+y = y # mean zero predictors
+M = (X - lapply(X, mean)) / lapply(X,sd)# standardised predictor matrix
+lots = 20000 
+beta = matrix(0, ncol=ncol(M), nrow=lots)
+r = y
+eps = 0.001
+for (i in 2:lots){
+  co = cor(M,r) 
+  j =  which.max(abs(co))
+  delta = eps * sign(co[j]) # E x sign(co)  
+  b = beta[i-1,]
+  b[j] = b[j] + delta
+  beta[i,] = b
+  r = r - delta * M[,j] # ??
+}
+
+```

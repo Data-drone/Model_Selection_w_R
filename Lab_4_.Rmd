@@ -1,0 +1,122 @@
+---
+title: "Lab_4_Afternoon"
+author: "Brian Law"
+date: "November 24, 2015"
+output: html_document
+---
+
+libraries for use in this section
+
+```{r}
+install.packages(c("mplot", "pairsD3", "Hmisc"))
+```
+
+Diabetes datset
+
+```{r}
+require(mplot)
+load(url("http://garthtarr.com/dbeg.RData"))
+# makes available objects full.mod, af1, v1 and bgn1
+mplot(full.mod, af1, v1, bgn1)
+```
+
+Solid waste data
+
+```{r}
+data("Shao", package = "bestglm")
+X = as.matrix.data.frame(Shao)
+
+dim(X)
+
+X[1,]
+```
+
+Generate the full fit model
+
+```{r}
+
+set.seed(4)
+n = 40
+y = 2 + X %*% c(0, 0, 4, 8) + rnorm(n)
+lm.full = lm(y ~ X)
+summary(lm.full)
+
+```
+
+Explore the boostrap
+
+```{r}
+
+B = 1000
+C = matrix(nrow = B, ncol = 5)
+for (b in 1:B) {
+    w = rexp(n)
+    lm.full.b = lm(y ~ X, weights = w)
+    C[b, ] = round(coef(lm.full.b), 2)
+}
+colnames(C) = c("Intcpt", "Slope_1", "Slope_2", "Slope_3", "Slope_4")
+#C
+apply(C, 2, sd)
+
+# correlation matrix
+
+pairsD3::shinypairs(C)
+d3heatmap::d3heatmap(cor(C))
+```
+
+Comparison of methods
+
+```{r}
+Boot <- function(B) {
+  C = matrix(nrow = B, ncol = 5)
+  for (b in 1:B) {
+    w = rexp(n)
+    lm.full.b = lm(y ~ X, weights = w)
+    C[b, ] = round(coef(lm.full.b), 2)
+    
+  }
+  return(apply(C,2,mean))
+}
+Samples = c(10, 100, 500, 1000, 2000)
+Ans_Frame = NULL
+for (i in Samples) {
+  A = Boot(i)
+  Ans_Frame = cbind(Ans_Frame, A)
+}  
+Sample_names <- lapply(Samples, FUN=as.character)
+C2 = cbind(c(2, 0, 0, 4, 8), round(coef(lm.full), 2), Ans_Frame)
+colnames(C2) = c(c("True", "Estimated"), Sample_names)
+C2
+```
+
+Charting options
+
+```{r}
+#using the function of mplot
+vis.out = vis(lm.full)
+plot(vis.out)
+```
+
+Options with the adaptive fence
+
+```{r}
+
+af.out = af(lm.full)
+plot(af.out)
+```
+
+Mplot everything
+
+```{r}
+
+mplot(lm.full, vis.out, af.out)
+
+```
+
+bglmnet
+
+```{r}
+bgn.learn <- bglmnet(lm.full)
+plot(bgn.learn)
+
+```

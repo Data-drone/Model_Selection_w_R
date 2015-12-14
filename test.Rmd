@@ -1,0 +1,77 @@
+---
+title: "Untitled"
+author: "Brian Law"
+date: "November 23, 2015"
+output: html_document
+---
+
+libraries
+
+```{r}
+library(leaps)
+
+```
+
+US Crime Dataset
+
+```{r}
+data("UScrime", package = "MASS")
+M0 = lm(y ~ 1, data = UScrime)  # Null model
+M1 = lm(y ~ ., data = UScrime)  # Full model
+```
+
+reg subsets function
+
+```{r}
+rgsbst.out = regsubsets(y ~ . , data = UScrime,
+                        nbest = 50,
+                        nvmax = NULL,
+                        force.in = NULL,
+                        method = "exhaustive",
+                        really.big = TRUE)
+rgsbst.out
+
+```
+
+summary of the function
+
+```{r}
+summary_output <- summary(rgsbst.out)
+summary_output
+```
+
+true false format instead for use in futher functions
+
+```{r}
+summary_output$which
+```
+
+show the Mallow's Cp function
+
+```{r}
+summary_output$cp
+# identify best model
+which.min(summary_output$cp)
+```
+
+extract out the best option as a tuple
+
+```{r}
+id = which.min(summary_output$cp)
+summary_output$which[id,]
+```
+
+plot out the mallows cp chart heatmap
+
+```{r, echo=FALSE}
+plot(rgsbst.out, scale = "Cp", main = "Mallows Cp")
+
+```
+
+plot out the mallows cp chart dot points
+
+```{r, echo=FALSE}
+plot(summary_output$cp ~ rowSums(summary_output$which),
+     ylab = "Cp", xlab = "Number of parameters")
+```
+
